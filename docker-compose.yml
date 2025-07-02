@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  log-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - SERVER_PORT=${SERVER_PORT}
+      - PUBLIC_LOG_FILE=${PUBLIC_LOG_FILE}
+      - PRIVATE_LOG_FILE=${PRIVATE_LOG_FILE}
+      - API_KEY=${API_KEY}
+      - SECRET_KEY=${SECRET_KEY}

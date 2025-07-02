@@ -1,0 +1,7 @@
+server_port: ":8080"
+public_log_file: ./logs/public_%v.log
+private_log_file: ./logs/private_%v.log
+api_key: abc
+secret_key: abc
+app:
+  name: LogApi

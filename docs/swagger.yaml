@@ -1,0 +1,90 @@
+definitions:
+  mappers.LogRequest:
+    properties:
+      data:
+        type: string
+      key:
+        type: string
+      metadata:
+        type: string
+      user_id:
+        type: string
+    required:
+    - data
+    - key
+    - metadata
+    - user_id
+    type: object
+  utils.ApiError:
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /private/log:
+    post:
+      consumes:
+      - application/json
+      description: Request public log
+      parameters:
+      - description: Log request
+        in: body
+        name: log
+        required: true
+        schema:
+          $ref: '#/definitions/mappers.LogRequest'
+      - description: API Key
+        in: header
+        name: x-api-key
+        required: true
+        type: string
+      - description: Secret Key
+        in: header
+        name: x-secret-key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.ApiError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.ApiError'
+      summary: Request public log
+      tags:
+      - Log
+  /public/log:
+    post:
+      consumes:
+      - application/json
+      description: Request public log
+      parameters:
+      - description: Log request
+        in: body
+        name: log
+        required: true
+        schema:
+          $ref: '#/definitions/mappers.LogRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.ApiError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.ApiError'
+      summary: Request public log
+      tags:
+      - Log
+swagger: "2.0"
