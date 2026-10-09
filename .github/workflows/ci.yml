@@ -12,6 +12,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # The store tests need a real PostgreSQL; without it they skip and the coverage printed below
+    # would be missing a third of the service. Same image as the compose file, and the tests drop
+    # the tables they use, so nothing here is worth keeping.
+    env:
+      TEST_DATABASE_URL: postgres://postgres:localdb@localhost:5432/gamelogs?sslmode=disable
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: gamelogs
+          POSTGRES_PASSWORD: localdb
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

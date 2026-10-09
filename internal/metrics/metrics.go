@@ -62,11 +62,15 @@ func (c *Counters) Handler() http.Handler {
 		write("# HELP gamelog_flush_total Write batches attempted.")
 		write("# TYPE gamelog_flush_total counter")
 		write("gamelog_flush_total %d", c.Flushes.Load())
+		write("# HELP gamelog_flush_errors_total Write batches that failed.")
+		write("# TYPE gamelog_flush_errors_total counter")
 		write("gamelog_flush_errors_total %d", c.FlushErrors.Load())
 
 		write("# HELP gamelog_rollup_total Rollup runs.")
 		write("# TYPE gamelog_rollup_total counter")
 		write("gamelog_rollup_total %d", c.Rollups.Load())
+		write("# HELP gamelog_rollup_errors_total Rollup runs that failed.")
+		write("# TYPE gamelog_rollup_errors_total counter")
 		write("gamelog_rollup_errors_total %d", c.RollupErrors.Load())
 
 		write("# HELP gamelog_ingest_write_seconds Time spent writing event batches.")

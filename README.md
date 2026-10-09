@@ -163,15 +163,28 @@ present.
 
 ## Coverage
 
-Measured with `go test -cover ./...` (the same command CI runs with `-race`):
+`make test` runs the unit tests; the store tests need a real PostgreSQL and skip themselves when
+`TEST_DATABASE_URL` is not set. That is how CI runs them too, against a postgres service container on the build
+job, so the number printed there is the whole service:
 
 | package | statements |
 |---|---|
+| `internal/metrics` | 100.0% |
 | `internal/config` | 94.1% |
-| `internal/ingest` | 35.4% |
-| `internal/metrics` | 0.0% |
-| `internal/store` | 0.0% |
+| `internal/store` | 88.3% |
+| `internal/ingest` | 86.9% |
+| `cmd/server` | 0.0% |
+| total | **76.5%** |
 
-The numbers are here rather than as a badge because two of them are zero: the batcher's logic is tested, and the
-two packages that talk to the outside world are exercised end to end by the smoke test in `make up` instead of by
-unit tests. That is a gap worth naming, not hiding.
+`cmd/server` is flags and wiring, and what covers it is the smoke test in `make up`. Everything else is measured
+by the tests, and reproduced like this:
+
+```bash
+make infra
+TEST_DATABASE_URL='postgres://postgres:localdb@localhost:5432/gamelogs?sslmode=disable' make coverage
+```
+
+Two things worth knowing before running that. The store tests **own the database they are pointed at** - they drop
+`events` and `metrics_daily` first so the migrations have something to create - so point them at a throwaway
+PostgreSQL. And they skip rather than fail without a database, which keeps `make test` usable on a laptop that has
+no postgres, at the cost of a coverage number that is quietly too low if you forget.
