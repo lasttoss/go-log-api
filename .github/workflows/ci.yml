@@ -41,3 +41,46 @@ jobs:
       - name: What is running
         if: always()
         run: docker compose ps
+
+  helm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+      - name: Lint the chart
+        # The chart refuses to render without a database connection string, on purpose, so the lint
+        # has to supply one.
+        run: |
+          helm lint charts/gamelog-api --set database.url=postgres://u:p@db:5432/gamelogs
+      - name: Render the defaults and every optional feature
+        run: |
+          helm template gamelog charts/gamelog-api \
+            --set database.url=postgres://u:p@db:5432/gamelogs > /tmp/default.yaml
+          helm template gamelog charts/gamelog-api \
+            --set database.existingSecret=byo-secret \
+            --set ingress.enabled=true \
+            --set autoscaling.enabled=true \
+            --set podDisruptionBudget.enabled=true \
+            --set networkPolicy.enabled=true \
+            --set waitForDatabase.enabled=true \
+            --set metrics.serviceMonitor.enabled=true > /tmp/full.yaml
+          # An environment variable whose name lost its underscore is the kind of mistake a render
+          # hides and the application silently ignores, falling back to its own defaults.
+          for name in ADDR DATABASE_URL BATCH_SIZE MAX_BATCH FLUSH_INTERVAL ROLLUP_INTERVAL; do
+            grep -q "name: $name" /tmp/default.yaml || { echo "$name is missing from the deployment"; exit 1; }
+          done
+      - name: The chart refuses to deploy without a database
+        run: |
+          if helm template gamelog charts/gamelog-api > /tmp/nodb.yaml 2> /tmp/nodb.err; then
+            echo "the chart rendered without a database, which would leave the application on its localhost default"
+            exit 1
+          fi
+          grep -q "database.url or database.existingSecret is required" /tmp/nodb.err
+      - name: Validate the rendered objects against the Kubernetes schemas
+        run: |
+          curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform.tar.gz kubeconform
+          ./kubeconform -strict -summary -ignore-missing-schemas /tmp/default.yaml /tmp/full.yaml

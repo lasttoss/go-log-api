@@ -1,0 +1,13 @@
+apiVersion: v2
+name: gamelog-api
+description: Game telemetry ingest, rollup and metrics API (Go, Postgres)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+home: https://github.com/lasttoss/go-log-api
+sources:
+  - https://github.com/lasttoss/go-log-api
+keywords: [golang, telemetry, postgres, game-backend]
+maintainers:
+  - name: Tran Trung Dung
+    url: https://github.com/lasttoss

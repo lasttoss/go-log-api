@@ -1,0 +1,145 @@
+# gamelog-api - the Go service that ingests game events, rolls them up and exposes the numbers.
+#
+# Two things about this application shape the chart and are worth reading in docs/kubernetes.md:
+#   * it migrates the schema at boot and exits if the database is unreachable, so the pod restarts
+#     with backoff until Postgres answers;
+#   * it flushes its in-memory batch on SIGTERM, which is why terminationGracePeriodSeconds is 30
+#     and not the default 30-seconds-less-than-you-think.
+
+replicaCount: 1
+# replicaCount stays at 1 on purpose. The rollup worker starts in every replica, so a second one
+# does the same work again, and both run the migrations at boot. Scale out only after the rollup
+# takes a lock - see "Scaling out" in docs/kubernetes.md.
+
+image:
+  repository: ghcr.io/lasttoss/go-log-api
+  # Defaults to the chart's appVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+database:
+  # postgres://user:password@host:5432/dbname?sslmode=disable
+  # Left empty the chart refuses to render rather than fall back to the application's own default,
+  # which points at localhost and turns a forgotten variable into a crash loop.
+  url: ""
+  # Or point at a Secret you manage yourself (recommended in production):
+  existingSecret: ""
+  existingSecretKey: database-url
+
+config:
+  listenPort: 8080
+  # How many events are held in memory before a write, and the ceiling the ingest endpoint enforces.
+  batchSize: 500
+  maxBatch: 1000
+  flushInterval: 2s
+  # How often the rollup worker rewrites today's aggregates. Every replica runs it.
+  rollupInterval: 30s
+
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: gamelog.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# The application migrates at boot; on a cold database that can take a moment, so a startup probe
+# keeps the liveness probe out of the way until the first successful check.
+startupProbe:
+  failureThreshold: 30
+  periodSeconds: 2
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+# The container image already has a healthcheck; these are the same thing expressed for Kubernetes.
+# Readiness asks /healthz, which pings Postgres, so a pod whose database is gone stops taking
+# traffic. Liveness only opens a socket, because a database blip is not a reason to restart every
+# pod that is still perfectly healthy.
+livenessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+readinessProbe:
+  initialDelaySeconds: 3
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# An optional init container that waits for Postgres before the application starts. Without it the
+# application exits and Kubernetes restarts it with backoff, which also works and is what the
+# default deployment relies on.
+waitForDatabase:
+  enabled: false
+  image: postgres:15-alpine
+  timeoutSeconds: 60
+
+metrics:
+  # The service exposes /metrics in Prometheus format.
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    additionalLabels: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 75
+  behavior: {}
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+networkPolicy:
+  enabled: false
+
+# e.g. nodeSelector: {kubernetes.io/arch: amd64}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+terminationGracePeriodSeconds: 30
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []

@@ -1,0 +1,12 @@
+{{- include "gamelog-api.validateDatabase" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gamelog-api.fullname" . }}
+  labels:
+    {{- include "gamelog-api.labels" . | nindent 4 }}
+data:
+  BATCH_SIZE: {{ .Values.config.batchSize | quote }}
+  MAX_BATCH: {{ .Values.config.maxBatch | quote }}
+  FLUSH_INTERVAL: {{ .Values.config.flushInterval | quote }}
+  ROLLUP_INTERVAL: {{ .Values.config.rollupInterval | quote }}

@@ -1,0 +1,149 @@
+{{- include "gamelog-api.validateDatabase" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gamelog-api.fullname" . }}
+  labels:
+    {{- include "gamelog-api.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      # A single-writer service with an in-memory batch: replace, do not stack two of them.
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "gamelog-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        # Restart when the tunables change: a new FLUSH_INTERVAL is no use to a running process.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "gamelog-api.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "gamelog-api.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- if .Values.waitForDatabase.enabled }}
+      initContainers:
+        - name: wait-for-database
+          image: {{ .Values.waitForDatabase.image | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              echo "waiting for the database"
+              for i in $(seq 1 {{ .Values.waitForDatabase.timeoutSeconds }}); do
+                if pg_isready -d "$DATABASE_URL" >/dev/null 2>&1; then
+                  echo "the database answers"
+                  exit 0
+                fi
+                sleep 1
+              done
+              echo "the database did not answer in {{ .Values.waitForDatabase.timeoutSeconds }}s"
+              exit 1
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gamelog-api.secretName" . }}
+                  key: {{ include "gamelog-api.secretKey" . }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "gamelog-api.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ADDR
+              value: ":{{ .Values.config.listenPort }}"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gamelog-api.secretName" . }}
+                  key: {{ include "gamelog-api.secretKey" . }}
+            # Spelled out one by one rather than derived from the values keys: the environment
+            # variable names have underscores in them (MAX_BATCH, FLUSH_INTERVAL) and a silent
+            # mismatch would leave the application on its own defaults.
+            {{- range $name := (list "BATCH_SIZE" "MAX_BATCH" "FLUSH_INTERVAL" "ROLLUP_INTERVAL") }}
+            - name: {{ $name }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "gamelog-api.fullname" $ }}
+                  key: {{ $name }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.listenPort }}
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: http
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

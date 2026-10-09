@@ -82,6 +82,19 @@ curl -s localhost:8080/metrics | grep rows_written
 
 Local development: `make infra` (postgres only), `make run`, `make race`, `make coverage`.
 
+## Running it on Kubernetes
+
+The chart in [`charts/gamelog-api`](charts/gamelog-api) deploys the service with its probes, its
+Secret and its PodDisruptionBudget; `helm test` asks it, from inside the cluster, whether it is
+healthy. [`docs/kubernetes.md`](docs/kubernetes.md) explains the two things about this application
+that shape the deployment: it migrates its own schema at boot, and it flushes the events still in
+memory on `SIGTERM`.
+
+```bash
+helm install gamelog charts/gamelog-api \
+  --set database.url='postgres://user:password@postgres:5432/gamelogs?sslmode=disable'
+```
+
 ## Configuration
 
 | environment | default | meaning |
