@@ -1,0 +1,12 @@
+%% Source for docs/diagrams/ingest-pipeline.html
+%% Where a batch of events goes, and where it is refused.
+flowchart LR
+  G["game servers<br/>batches of events"] -->|"POST /v1/events"| V{"validate<br/>400 · 413 oversized"}
+  V -->|"accepted"| BUF["in-memory buffer<br/>full → 503"]
+  BUF --> B["batcher<br/>flush on 500 rows<br/>or on a timer"]
+  B -->|"one multi-row INSERT"| PG[("PostgreSQL")]
+  PG --> R["rollup<br/>recompute"]
+  R --> Q["read path<br/>GET stats"]
+  B -.-> M["counters per stage:<br/>accepted · rejected · flush errors<br/>rollup runs · write time"]
+  classDef gate fill:#eef5ef,stroke:#1a6b3c,stroke-width:2px;
+  class V,BUF,B gate;

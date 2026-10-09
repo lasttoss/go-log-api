@@ -133,3 +133,30 @@ deployment would move this to versioned migrations.
 ## License
 
 MIT - see [LICENSE](LICENSE). Dependencies keep their own licenses (`go.mod`).
+
+## The pipeline as a picture
+
+```mermaid
+%% Source for docs/diagrams/ingest-pipeline.html
+%% Where a batch of events goes, and where it is refused.
+flowchart LR
+  G["game servers<br/>batches of events"] -->|"POST /v1/events"| V{"validate<br/>400 · 413 oversized"}
+  V -->|"accepted"| BUF["in-memory buffer<br/>full → 503"]
+  BUF --> B["batcher<br/>flush on 500 rows<br/>or on a timer"]
+  B -->|"one multi-row INSERT"| PG[("PostgreSQL")]
+  PG --> R["rollup<br/>recompute"]
+  R --> Q["read path<br/>GET stats"]
+  B -.-> M["counters per stage:<br/>accepted · rejected · flush errors<br/>rollup runs · write time"]
+  classDef gate fill:#eef5ef,stroke:#1a6b3c,stroke-width:2px;
+  class V,BUF,B gate;
+```
+
+The request path, and the two places it is refused: a `413` is a caller sending more than `MAX_BATCH` — the
+size of a write is a decision the server makes — and a `503` is the buffer being full, which is refusing
+load while there is still capacity to answer rather than queueing until there is none.
+
+The counters are drawn on the picture because they are what locates a slow run: accepted and rejected per
+stage, flush errors, rollup runs, and the total time spent writing batches.
+
+`docs/diagrams/ingest-pipeline.mmd` is the Mermaid source; `make diagram` exports a PNG if a browser is
+present.
