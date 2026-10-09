@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: gamelog-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gamelogs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdb}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    container_name: gamelog-api
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-localdb}@postgres:5432/${POSTGRES_DB:-gamelogs}?sslmode=disable
+      BATCH_SIZE: ${BATCH_SIZE:-500}
+      MAX_BATCH: ${MAX_BATCH:-1000}
+      FLUSH_INTERVAL: ${FLUSH_INTERVAL:-1s}
+      # short rollup interval so a fresh clone shows numbers within seconds
+      ROLLUP_INTERVAL: ${ROLLUP_INTERVAL:-10s}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
