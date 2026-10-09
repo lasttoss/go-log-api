@@ -54,6 +54,10 @@ jobs:
         with:
           version: v3.16.3
       - name: Lint the chart
+      - name: The chart must refuse to render without a database
+        # The guard is a feature, so it is tested: a chart that quietly renders with no database is a
+        # chart whose pods try localhost and crash loop.
+        run: make guard
         # The chart refuses to render without a database connection string, on purpose, so the lint
         # has to supply one.
         run: |
