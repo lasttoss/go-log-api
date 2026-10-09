@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -21,6 +22,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -29,9 +31,13 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Start postgres + the api
-        run: docker compose up -d --build
+        run: docker compose up -d --build --wait --wait-timeout 240
       - name: Smoke test
         run: python3 scripts/smoke.py 127.0.0.1 8080
       - name: Logs
         if: always()
         run: docker compose logs api
+
+      - name: What is running
+        if: always()
+        run: docker compose ps
