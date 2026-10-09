@@ -2,13 +2,18 @@ The ingest API is running{{ if .Values.autoscaling.enabled }}, behind a Horizont
 
   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
 
-Post one event and read it back:
+Post a couple of events and read the rollup back (the field names are the ones in the API table
+in the README - the ingest rejects an event whose game_id is missing):
 
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "gamelog-api.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }} &
   curl -s -X POST localhost:{{ .Values.service.port }}/v1/events \
     -H 'content-type: application/json' \
-    -d '{"events":[{"game_id":"demo","event_type":"session","player_id":"p1","value":1}]}'
-  curl -s localhost:{{ .Values.service.port }}/v1/games/stats | head -c 300
+    -d '{"events":[{"game_id":"cozy-garden","user_id":"u-1","type":"login"},
+                    {"game_id":"cozy-garden","user_id":"u-2","type":"purchase","value":4.99}]}'
+  # 202 with what it accepted, then wait one ROLLUP_INTERVAL ({{ .Values.config.rollupInterval }}) for the
+  # numbers to appear:
+  curl -s 'localhost:{{ .Values.service.port }}/v1/games/stats?game_id=cozy-garden'
+  curl -s localhost:{{ .Values.service.port }}/metrics | grep -E 'accepted|rows_written'
 
 Two things this chart does on purpose:
 
