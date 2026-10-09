@@ -160,3 +160,18 @@ stage, flush errors, rollup runs, and the total time spent writing batches.
 
 `docs/diagrams/ingest-pipeline.mmd` is the Mermaid source; `make diagram` exports a PNG if a browser is
 present.
+
+## Coverage
+
+Measured with `go test -cover ./...` (the same command CI runs with `-race`):
+
+| package | statements |
+|---|---|
+| `internal/config` | 94.1% |
+| `internal/ingest` | 35.4% |
+| `internal/metrics` | 0.0% |
+| `internal/store` | 0.0% |
+
+The numbers are here rather than as a badge because two of them are zero: the batcher's logic is tested, and the
+two packages that talk to the outside world are exercised end to end by the smoke test in `make up` instead of by
+unit tests. That is a gap worth naming, not hiding.
