@@ -5,3 +5,6 @@ coverage.out
 *.prof
 *.test
 vendor/
+
+# Mermaid checker dependencies
+node_modules/

@@ -1,0 +1,14 @@
+{
+  "name": "mermaid-check",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Parses every Mermaid diagram in the documentation, so a syntax error cannot reach GitHub as a silent 'Unable to render rich display' box.",
+  "type": "module",
+  "scripts": {
+    "check": "node check.mjs"
+  },
+  "dependencies": {
+    "jsdom": "^27.0.0",
+    "mermaid": "^11.12.0"
+  }
+}
