@@ -18,6 +18,14 @@ $ make up
 OK - ingest, validation, batching, rollup and the read path all work
 ```
 
+## The shape of it
+
+The figure answers one question: what this service accepts, what it refuses, and where pressure goes.
+
+![Batch ingest through validation, a bounded batcher, PostgreSQL, SQL rollup and a metrics endpoint, with rejection and backpressure branches](docs/figures/ingest-rollup.png)
+
+**Figure 1.** A full queue answers 503 instead of accepting work it cannot hold; a bad event is rejected by index and reason, so one row does not cost the batch. Source: [`docs/figures/ingest-rollup.html`](docs/figures/ingest-rollup.html) — self-contained SVG, no remote assets.
+
 ## What this demonstrates
 
 - **Validation at the edge.** Every event is checked in `internal/ingest/event.go` (required
